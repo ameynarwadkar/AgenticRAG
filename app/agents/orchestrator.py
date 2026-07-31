@@ -379,7 +379,7 @@ When scheduling events, ALWAYS use the current year ({current_year}) or future d
             tools=TOOL_DEFINITIONS,
             tool_choice="auto",
             temperature=settings.temperature,
-            max_tokens=1500
+            max_completion_tokens=1500
         )
         
         message = response.choices[0].message

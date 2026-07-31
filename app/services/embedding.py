@@ -17,8 +17,18 @@ class EmbeddingService:
     
     def __init__(self):
         """Initialize OpenAI client for embeddings."""
-        self.openai_client = openai.OpenAI(api_key=settings.openai_api_key)
-        self.embed_model = settings.openai_embed_model
+        self.provider = settings.ai_provider
+        
+        if self.provider == "azure":
+            self.openai_client = openai.AzureOpenAI(
+                api_key=settings.azure_openai_api_key,
+                api_version=settings.azure_openai_api_version,
+                azure_endpoint=settings.azure_openai_endpoint
+            )
+            self.embed_model = settings.azure_openai_embedding_deployment_name
+        else:
+            self.openai_client = openai.OpenAI(api_key=settings.openai_api_key)
+            self.embed_model = settings.openai_embed_model
     
     async def embed_texts(self, texts: List[str]) -> List[List[float]]:
         """

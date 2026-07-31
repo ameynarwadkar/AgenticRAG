@@ -84,7 +84,7 @@ class ChatService:
                         {"role": "user", "content": user_prompt}
                     ],
                     temperature=settings.temperature,
-                    max_tokens=1000
+                    max_completion_tokens=1000
                 )
                 answer = response.choices[0].message.content
                 
