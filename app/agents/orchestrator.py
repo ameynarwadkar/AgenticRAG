@@ -26,6 +26,8 @@ from ..config.database import db
 from ..services.embedding import embedding_service
 from .tools import tool_registry
 from ..schemas.tool_schemas import TOOL_DEFINITIONS
+from ..services.audit_logger import audit_logger
+from langfuse import observe
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -144,6 +146,17 @@ class AgentService:
                             **result
                         })
                         
+                        await audit_logger.log_tool_execution(
+                            tool_name=tool_name,
+                            input_params=tool_args,
+                            output_results=result,
+                            status=result.get("status", "UNKNOWN"),
+                            model_used=self.model,
+                            session_id=None,
+                            user_id=None
+                        )
+
+
                         # Add assistant message with tool call
                         # Include 'type' field required by OpenAI API
                         messages.append({
@@ -204,6 +217,7 @@ class AgentService:
                 }
             }
     
+    @observe(as_type="retriever", name="rag_context")
     async def _get_rag_context(
         self, 
         query: str, 
@@ -360,6 +374,7 @@ When scheduling events, ALWAYS use the current year ({current_year}) or future d
         else:
             raise ValueError(f"Unsupported provider: {self.provider}")
     
+    @observe(as_type="generation", name="openai")
     async def _call_openai(
         self, 
         messages: List[Dict[str, Any]]

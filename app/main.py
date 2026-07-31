@@ -13,6 +13,12 @@ The key difference between /answer and /agent:
 """
 
 import logging
+import os
+from dotenv import load_dotenv
+
+# Load .env into os.environ so Langfuse can read the keys automatically
+load_dotenv()
+
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -35,6 +41,7 @@ from .services.rag import rag_service
 from .agents.orchestrator import agent_service
 from .data.default_documents import DEFAULT_DOCUMENTS
 from .schemas.tool_schemas import TOOL_DEFINITIONS
+from .config.otel_setup import setup_opentelemetry
 
 # Configure logging
 logging.basicConfig(
@@ -59,6 +66,22 @@ async def lifespan(app: FastAPI):
         # Check database schema
         await db.initialize_schema()
         
+        # Verify Audit Logger & Langfuse
+        logger.info("Initializing Enterprise Observability & Audit layers...")
+        
+        # 1. Audit Logger
+        from .services.audit_logger import audit_logger
+        logger.info("✅ Append-only Audit Ledger is active and ready to record tool executions.")
+        
+        # 2. Langfuse Check
+        from langfuse import get_client
+        langfuse_client = get_client()
+        
+        if langfuse_client.auth_check():
+            logger.info("✅ Langfuse tracing successfully authenticated and enabled.")
+        else:
+            logger.warning("⚠️ Langfuse authentication failed! Tracing will be disabled. Check LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY in .env")
+        
         logger.info("Application startup completed successfully")
         
     except Exception as e:
@@ -70,6 +93,14 @@ async def lifespan(app: FastAPI):
     # Shutdown
     logger.info("Shutting down Agentic RAG API application")
     await db.disconnect()
+    
+    # Flush Langfuse telemetry before exit
+    try:
+        from langfuse import get_client
+        get_client().flush()
+        logger.info("Langfuse telemetry flushed.")
+    except Exception:
+        pass
 
 
 # Create FastAPI application
@@ -97,6 +128,8 @@ Retrieval-Augmented Generation with autonomous tool-calling capabilities.
     version="2.0.0",
     lifespan=lifespan
 )
+
+setup_opentelemetry(app)
 
 # Configure CORS for frontend integration
 app.add_middleware(

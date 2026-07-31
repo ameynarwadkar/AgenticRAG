@@ -1,6 +1,6 @@
 # 🤖 AgenticRAG
 
-A production-ready FastAPI backend demonstrating **Agentic RAG** — a system that combines Retrieval-Augmented Generation (RAG) with autonomous tool-calling capabilities to create intelligent, action-oriented AI agents.
+A production-ready FastAPI backend demonstrating **Agentic RAG**. A system that combines Retrieval-Augmented Generation (RAG) with autonomous tool-calling capabilities to create intelligent, action-oriented AI agents.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)

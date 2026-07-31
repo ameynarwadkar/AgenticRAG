@@ -8,5 +8,6 @@ This module contains:
 
 from .settings import get_settings, Settings
 from .database import db, Database
+from .otel_setup import setup_opentelemetry
 
-__all__ = ['get_settings', 'Settings', 'db', 'Database']
+__all__ = ['get_settings', 'Settings', 'db', 'Database', 'setup_opentelemetry']

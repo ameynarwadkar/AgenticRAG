@@ -12,6 +12,7 @@ from .embedding import embedding_service
 from .chat import chat_service
 from .chunker import chunker
 from ..data.default_documents import DEFAULT_DOCUMENTS
+from langfuse import observe
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +69,7 @@ class RAGService:
             logger.error(f"Seeding failed: {e}")
             raise
     
+    @observe(as_type="generation")
     async def answer_query(self, query: str, top_k: int = 6) -> Dict[str, Any]:
         """
         Process a query through the complete RAG pipeline.
