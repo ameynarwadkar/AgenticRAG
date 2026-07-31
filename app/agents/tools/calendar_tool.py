@@ -13,6 +13,7 @@ domain-wide delegation to create events on behalf of users.
 
 import logging
 from typing import Dict, Any, List, Optional
+from app.security.idempotency_middleware import with_idempotency
 
 from .base import BaseTool
 
@@ -194,6 +195,7 @@ class CalendarTool(BaseTool):
             #             attendee_list.append({'email': email})
             # event['attendees'] = attendee_list
             
+            @with_idempotency
             # Create the event
             created_event = service.events().insert(
                 calendarId=settings.google_calendar_id,

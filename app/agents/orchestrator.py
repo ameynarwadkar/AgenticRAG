@@ -28,7 +28,9 @@ from .tools import tool_registry
 from ..schemas.tool_schemas import TOOL_DEFINITIONS
 from ..services.audit_logger import audit_logger
 from langfuse import observe
+from app.security.hitl_implementation import request_tool_approval
 
+dangerous_tools = ["create_calendar_event", "send_email"]
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
@@ -78,7 +80,8 @@ class AgentService:
         chat_history: Optional[List[Dict[str, str]]] = None,
         user_id: Optional[str] = None,
         top_k: int = 6,
-        max_iterations: int = 5
+        max_iterations: int = 5,
+        user_access_token: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Process a user query through the full agentic pipeline.
@@ -105,7 +108,7 @@ class AgentService:
         try:
             # Step 1: Retrieve RAG context
             logger.info(f"Step 1: Retrieving RAG context for: '{query[:50]}...'")
-            rag_context = await self._get_rag_context(query, top_k)
+            rag_context = await self._get_rag_context(query, top_k, user_access_token)
             
             # Step 2: Build initial messages with system prompt and chat history
             messages = self._build_initial_messages(query, rag_context, chat_history)
@@ -135,6 +138,45 @@ class AgentService:
                             "call_id": tool_call['id']
                         })
                         
+                        #======================================
+                        # HITL Implementation
+                        #======================================
+                        if tool_name in dangerous_tools:
+                            logger.warning(f"Intercepted dangerous tool: {tool_name}, Requesting HITL approval.")
+
+                            # Create the pending action and get the message for the LLM
+                            mock_result_msg = request_tool_approval(
+                                tool_name=tool_name,
+                                kwargs=tool_args
+                            )
+
+                            # Create a fake result dict to trick the LLM into pausing
+                            # Pydantic expects 'result' to be a Dictionary, not a string
+                            result = {
+                                "success": True,
+                                "result": {"message": mock_result_msg},
+                                "status": "PENDING_APPROVAL"
+                            }
+
+                            # add it to the results so the LLM gets the message then skip executione
+                            tool_results.append({
+                                "call_id": tool_call['id'],
+                                "tool_name": tool_name,
+                                **result
+                            })
+
+                            # logging it
+                            await audit_logger.log_tool_execution(
+                                tool_name=tool_name,
+                                input_params=tool_args,
+                                output_results=result,
+                                status="PENDING_APPROVAL",
+                                user_id=None,
+                                session_id=None,
+                                model_used=self.model,
+                            )
+                            #skip execution and let the LLM handle this new message
+                            continue
                         # Execute the tool via registry
                         result = await tool_registry.execute_tool(
                             tool_name, 
@@ -221,7 +263,8 @@ class AgentService:
     async def _get_rag_context(
         self, 
         query: str, 
-        top_k: int
+        top_k: int,
+        user_access_token: str = None
     ) -> List[Dict[str, Any]]:
         """
         Retrieve relevant context from RAG.
@@ -238,7 +281,7 @@ class AgentService:
             query_embedding = await embedding_service.embed_query(query)
             
             # Vector similarity search
-            search_results = await db.vector_search(query_embedding, top_k)
+            search_results = await db.vector_search(query_embedding, user_access_token, top_k)
             
             # Deduplicate by chunk_id prefix (MMR-lite)
             seen_prefixes = set()

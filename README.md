@@ -30,6 +30,15 @@ The agent is capable of:
 - **Conversational Memory**: Multi-turn chat history support.
 - **Citation Tracking**: Source attribution for generated answers.
 
+### 🏢 Enterprise-Grade Features Added
+
+- **Multi-Tenant Security**: Row-Level Security (RLS) implemented in Supabase to ensure users only access their own vector embeddings via scoped JWT tokens.
+- **Human-in-the-Loop (HITL)**: High-risk tools (like calendar edits and emails) are paused in a `PENDING_APPROVAL` state, requiring explicit frontend confirmation before execution.
+- **Action Idempotency**: Tool execution wrappers generate SHA-256 hashes of arguments to prevent accidental duplicate actions (like sending double emails) during LLM network retries.
+- **Observability (OTel & Langfuse)**: Fully instrumented with OpenTelemetry for FastAPI/OpenAI distributed tracing, combined with Langfuse for prompt monitoring, token counting, and evaluation.
+- **Audit Logging**: Comprehensive system tracking (`audit_logger`) that logs all tool executions, parameters, and their success/failure status to the database.
+- **CI/CD Pipeline**: Jenkins pipeline (`Jenkinsfile`) integrated with `pytest` and mock LLM calls to automatically validate the RAG agent's logic on every commit.
+
 ---
 
 ## 📁 Architecture & Structure

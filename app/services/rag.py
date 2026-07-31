@@ -27,7 +27,7 @@ class RAGService:
         self.chat_service = chat_service
         self.chunker = chunker
     
-    async def seed_documents(self, documents: List[Dict[str, str]] = None) -> int:
+    async def seed_documents(self, documents: List[Dict[str, str]] = None, user_id: str = None) -> int:
         """
         Seed the knowledge base with documents.
         
@@ -58,7 +58,7 @@ class RAGService:
                 chunk['embedding'] = embedding
             
             # Step 4: Store in database
-            inserted_count = await self.db.upsert_chunks(chunks)
+            inserted_count = await self.db.upsert_chunks(chunks, user_id)
             
             elapsed_ms = int((time.time() - start_time) * 1000)
             logger.info(f"Seeding completed in {elapsed_ms}ms: {inserted_count} chunks inserted")
@@ -70,7 +70,7 @@ class RAGService:
             raise
     
     @observe(as_type="generation")
-    async def answer_query(self, query: str, top_k: int = 6) -> Dict[str, Any]:
+    async def answer_query(self, query: str, user_access_token: str = None, top_k: int = 6) -> Dict[str, Any]:
         """
         Process a query through the complete RAG pipeline.
         
@@ -88,7 +88,7 @@ class RAGService:
             query_embedding = await self.embedding_service.embed_query(query)
             
             # Step 2: Vector similarity search
-            search_results = await self.db.vector_search(query_embedding, top_k)
+            search_results = await self.db.vector_search(query_embedding, user_access_token, top_k)
             
             if not search_results:
                 return {

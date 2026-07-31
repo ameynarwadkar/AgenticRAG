@@ -15,6 +15,7 @@ import base64
 from typing import Dict, Any
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from app.security.idempotency_middleware import with_idempotency
 
 from .base import BaseTool
 
@@ -161,6 +162,7 @@ class EmailTool(BaseTool):
                 message.as_bytes()
             ).decode('utf-8')
             
+            @with_idempotency
             # Send the email
             sent_message = service.users().messages().send(
                 userId='me',

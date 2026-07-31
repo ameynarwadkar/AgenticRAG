@@ -58,6 +58,25 @@ class Database:
         
         return self._admin_client if admin else self.supabase
     
+    def get_user_client(self, user_access_token: str) -> Client:
+        """
+        Creates a Supabase client that acts on behalf of an authenticated user.
+        This enforces Row-Level Security (RLS) so they only see their own embeddings.
+        """
+        if not self.supabase:
+            raise RuntimeError("Database not connected. Call connect() first.")
+        
+        # 1. Create a fresh client using the PUBLIC ANON key (NOT the admin key!)
+        user_client = create_client(
+            settings.supabase_url,
+            settings.supabase_anon_key
+        )
+        
+        # 2. Set the user's JWT token so Supabase knows who is querying
+        user_client.auth.set_session(user_access_token, refresh_token="")
+        
+        return user_client
+
     async def initialize_schema(self) -> None:
         """
         Check if database schema is initialized.
@@ -99,7 +118,7 @@ class Database:
                 "Please ensure you've run sql/init_supabase.sql in your Supabase dashboard"
             )
     
-    async def upsert_chunks(self, chunks: List[Dict[str, Any]]) -> int:
+    async def upsert_chunks(self, chunks: List[Dict[str, Any]], user_id:str) -> int:
         """
         Upsert document chunks into the database using Supabase SDK.
         
@@ -122,7 +141,8 @@ class Database:
                     'chunk_id': chunk['chunk_id'],
                     'source': chunk['source'],
                     'text': chunk['text'],
-                    'embedding': chunk['embedding']  # Supabase handles vector serialization
+                    'embedding': chunk['embedding'],  # Supabase handles vector serialization
+                    'user_id': user_id
                 })
             
             # Use upsert with on_conflict parameter
@@ -139,7 +159,7 @@ class Database:
             logger.error(f"Failed to upsert chunks: {e}")
             raise
     
-    async def vector_search(self, query_embedding: List[float], top_k: int = 6) -> List[Dict[str, Any]]:
+    async def vector_search(self, query_embedding: List[float], user_access_token: str, top_k: int = 6) -> List[Dict[str, Any]]:
         """
         Perform vector similarity search using Supabase SDK.
         
@@ -151,7 +171,7 @@ class Database:
             List of matching chunks with similarity scores
         """
         try:
-            client = self.get_client(admin=True)
+            client = self.get_user_client(user_access_token)
             
             # Use RPC call for vector similarity search
             # This requires creating a PostgreSQL function in Supabase

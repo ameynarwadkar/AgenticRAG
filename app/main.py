@@ -42,6 +42,7 @@ from .agents.orchestrator import agent_service
 from .data.default_documents import DEFAULT_DOCUMENTS
 from .schemas.tool_schemas import TOOL_DEFINITIONS
 from .config.otel_setup import setup_opentelemetry
+from .security.hitl_implementation import router as hitl_router
 
 # Configure logging
 logging.basicConfig(
@@ -362,8 +363,10 @@ async def list_tools():
     }
 
 
+from fastapi import Header
+
 @app.post("/agent", response_model=AgentResponse, tags=["Agent"])
-async def agent_query(request: AgentRequest):
+async def agent_query(request: AgentRequest, authorization: str = Header(None)):
     """
     Process a query using Agentic RAG (with tool calling).
     
@@ -400,11 +403,17 @@ async def agent_query(request: AgentRequest):
                 for msg in request.chat_history
             ]
         
+        # Extract JWT token from the Authorization header
+        if not authorization or not authorization.startswith("Bearer "):
+            raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
+        user_access_token = authorization.split(" ")[1]
+        
         result = await agent_service.process_query(
             query=request.query,
             chat_history=chat_history,
             user_id=request.user_id,
-            top_k=request.top_k
+            top_k=request.top_k,
+            user_access_token=user_access_token
         )
         
         # Build response with proper model instances
