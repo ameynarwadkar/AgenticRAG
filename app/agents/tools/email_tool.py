@@ -79,16 +79,17 @@ class EmailTool(BaseTool):
                     scopes=['https://www.googleapis.com/auth/gmail.send']
                 )
                 
-                # Delegate to the corporate email for domain-wide delegation
-                delegated_credentials = credentials.with_subject(
-                    settings.google_calendar_email  # Same email for both services
-                )
+                # For Enterprise Google Workspace with Domain-Wide Delegation, uncomment below:
+                # delegated_credentials = credentials.with_subject(
+                #     settings.google_calendar_email  # Same email for both services
+                # )
                 
-                # Build the Gmail service
+                # Build the Gmail service using the Service Account's native credentials
+                # (Change `credentials=credentials` to `credentials=delegated_credentials` for enterprise)
                 self._service = build(
                     'gmail', 
                     'v1', 
-                    credentials=delegated_credentials
+                    credentials=credentials
                 )
                 self._initialized = True
                 logger.info(

@@ -76,16 +76,17 @@ class CalendarTool(BaseTool):
                     scopes=['https://www.googleapis.com/auth/calendar']
                 )
                 
-                # Delegate to the corporate email for domain-wide delegation
-                delegated_credentials = credentials.with_subject(
-                    settings.google_calendar_email
-                )
+                # For Enterprise Google Workspace with Domain-Wide Delegation, uncomment below:
+                # delegated_credentials = credentials.with_subject(
+                #     settings.google_calendar_email
+                # )
                 
-                # Build the Calendar service
+                # Build the Calendar service using the Service Account's native credentials
+                # (Change `credentials=credentials` to `credentials=delegated_credentials` for enterprise)
                 self._service = build(
                     'calendar', 
                     'v3', 
-                    credentials=delegated_credentials
+                    credentials=credentials
                 )
                 self._initialized = True
                 logger.info(
@@ -165,41 +166,41 @@ class CalendarTool(BaseTool):
                     'dateTime': end_datetime,
                     'timeZone': timezone,
                 },
-                # Add Google Meet video conferencing
-                'conferenceData': {
-                    'createRequest': {
-                        'requestId': f'agentic-rag-{start_datetime.replace(":", "-").replace("T", "-")}',
-                        'conferenceSolutionKey': {
-                            'type': 'hangoutsMeet'
-                        }
-                    }
-                },
+                # For Enterprise Google Workspace, uncomment below to add Google Meet video conferencing:
+                # 'conferenceData': {
+                #     'createRequest': {
+                #         'requestId': f'agentic-rag-{start_datetime.replace(":", "-").replace("T", "-")}',
+                #         'conferenceSolutionKey': {
+                #             'type': 'hangoutsMeet'
+                #         }
+                #     }
+                # },
             }
             
-            # Build attendees list - always include organizer
-            attendee_list = [
-                {
-                    'email': settings.google_calendar_email,
-                    'organizer': True,
-                    'responseStatus': 'accepted'
-                }
-            ]
+            # Service accounts without Domain-Wide Delegation cannot invite attendees.
+            # Thus, we do not add an attendees list or sendUpdates='all'.
+            # For Enterprise Google Workspace, uncomment the below logic:
             
-            # Add other attendees if provided
-            if attendees:
-                for email in attendees:
-                    # Don't add organizer twice
-                    if email.lower() != settings.google_calendar_email.lower():
-                        attendee_list.append({'email': email})
+            # attendee_list = [
+            #     {
+            #         'email': settings.google_calendar_email,
+            #         'organizer': True,
+            #         'responseStatus': 'accepted'
+            #     }
+            # ]
+            # if attendees:
+            #     for email in attendees:
+            #         if email.lower() != settings.google_calendar_email.lower():
+            #             attendee_list.append({'email': email})
+            # event['attendees'] = attendee_list
             
-            event['attendees'] = attendee_list
-            
-            # Create the event with conference data support
+            # Create the event
             created_event = service.events().insert(
                 calendarId=settings.google_calendar_id,
-                body=event,
-                conferenceDataVersion=1,  # Required to create Meet link
-                sendUpdates='all'  # Send email invitations to all attendees
+                body=event
+                # For Enterprise Google Workspace, uncomment below:
+                # conferenceDataVersion=1,
+                # sendUpdates='all'
             ).execute()
             
             # Extract Google Meet link if available
